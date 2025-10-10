@@ -1,22 +1,24 @@
 # MyServer
 
-`MyServer` is a simple HTTP server written by C++, which controled by `CMake`. This project mean to help me understand `NON_BLOCKING Model`. In addition, I can use this project to practice my coding skill.
+* __MyServer__ is a simple HTTP server written by C++ and constructed by __CMake__.   
+* This project means to help me understand `NON_BLOCKING Model`. 
+* Last, I want to use this project to improve my coding skill.
 
 ## Done
-* [x] based by `select`
-* [x] support `gtest`
-* [x] Sanitizers(Linux)
-* [x] Enable `IPv6`
+* select (macOS & Linux)
+* [GTest](https://github.com/google/googletest)
+* Sanitizers(Linux)
+* IPv6
 
 ## Doing
-* [x] Refactor, Optimize (Always and forever :)
-* [x] Sanitizers(macOS)
+* Refactoring, Optimize (Always and forever :)
+* Sanitizers(macOS)
+* level log print
 
 ## Todo
-* [ ] `symbol visibility`
-* [ ] based by `epoll`
-* [ ] based by `libevent`
-* [ ] enable `SSL`
-* [ ] enable `file R/W`
-* [ ] support `log print`
-* [ ] support `Windows`
+* [ ] Symbol visibility
+* [ ] epoll
+* [ ] libevent
+* [ ] SSL
+* [ ] file R/W
+* [ ] Running on Windows
