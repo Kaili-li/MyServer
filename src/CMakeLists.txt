@@ -4,26 +4,25 @@ include_directories(flags)
 
 add_library(base STATIC "")
 target_sources(base PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/base/event.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/base/event_wrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/base/logging.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/base/posix_socket.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/base/utils.cc
 )
 target_include_directories(base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/base)
 
 
-add_library(server STATIC "")
-target_sources(server PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/server/http_session.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/server/server.cc
+add_library(net STATIC "")
+target_sources(net PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/http_session.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/server.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/socket_wrapper.cpp
 )
-target_include_directories(server PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/server)
-target_link_libraries(server base)
+target_include_directories(net PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/net)
+target_link_libraries(net base)
 
 
-
-add_executable(demo ${CMAKE_CURRENT_SOURCE_DIR}/demos/main.cc)
-target_link_libraries(demo server)
+add_executable(server ${CMAKE_CURRENT_SOURCE_DIR}/main.cc)
+target_link_libraries(server net)
 
 
 if (ENABLE_SANITIZER)

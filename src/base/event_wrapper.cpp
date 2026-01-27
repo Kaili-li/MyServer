@@ -1,4 +1,4 @@
-#include "event.h"
+#include "event_wrapper.hpp"
 
 
 // condition implementation
@@ -18,6 +18,14 @@ int  fd_max{-1};
 std::vector<Event> events{};
 static bool isLoopRunning{false};
 
+Event::Event(SOCKET socket, int type, Callback cb) : socket(socket), event_type(type), callback(std::move(cb))   // TODO: Optimize here
+{}
+
+bool Event::operator==(const Event& e) const
+{
+    return std::tie(e.socket, e.event_type) == std::tie(socket, event_type);
+}
+
 
 /**
  *
@@ -30,11 +38,13 @@ void EventAdd(int socket, int event_type, Callback cb)
     assert(cb != nullptr);
 
     Event e{socket, event_type, std::move(cb)};
-    fd_max = socket >= fd_max ? socket + 1 : fd_max;
+    fd_max = std::max(socket + 1, fd_max);
 
     auto iter = std::find(events.begin(), events.end(), e);
     if (iter == events.end())
+    {
         events.emplace_back(e);
+    }
 }
 
 
@@ -70,7 +80,7 @@ void StartEventLoop()
         {
             if (FD_ISSET(t.socket, &rfds) || FD_ISSET(t.socket, &wfds))
             {
-                t.callback_();
+                t.callback();
             }
         }
 
@@ -79,16 +89,20 @@ void StartEventLoop()
         FD_ZERO(&wfds);
         for_each(events.begin(), events.end(), [&](const Event &t)
         {
-            if (t.event_type == READ)
+            if (t.event_type & kRead)
+            {
                 FD_SET(t.socket, &rfds);
+            }
             else
+            {
                 FD_SET(t.socket, &wfds);
+            }
         });
     }
 }
 
 
-int GetEventQuantity()
+int GetEventQuantityForTest()
 {
     return static_cast<int>(events.size());
 }
