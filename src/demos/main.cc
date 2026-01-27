@@ -4,13 +4,15 @@
 
 int main()
 {
-    Server server;
-    if (!server.Start())
-    {
-        std::cerr << "Server start failed" << std::endl;
+    Server::GetInstance().SetListenPort(8000);
+    if (!Server::GetInstance().Init()) {
+        std::cerr << "Server Init failed " << std::endl;
+        return -1;
     }
 
-	std::cout << "hello world" << std::endl;
+    // Server::GetInstance().EnableIPv6();
+
+    Server::GetInstance().Start();
 
     return 0;
 }

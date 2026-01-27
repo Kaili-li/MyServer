@@ -1,7 +1,5 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <iostream>
 
 #include "server.h"
@@ -9,18 +7,17 @@
 #include "http_session.h"
 
 
-//constexpr short kHTTP  = 80;
-constexpr short kTEST  = 8000;
-//constexpr short kHTTPS = 443;
-//constexpr short kTESTS = 8043;
 
-
-Server::Server() = default;
-
+Server::Server() : ipv6_enabled_(false), ssl_enabled_(false), listen_port_(80), ssl_listen_port_(443)
+{}
 
 Server::~Server()
 {
-    socket_.StopRead();
+    socket_.Close();
+
+    if (ipv6_enabled_) {
+        v6_socket_.Close();
+    }
 }
 
 
@@ -29,13 +26,13 @@ bool Server::Init()
     struct sockaddr_in srv_addr{};
     srv_addr.sin_family = AF_INET;
     srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    srv_addr.sin_port = htons(kTEST);
+    srv_addr.sin_port = htons(listen_port_);
     if (bind(socket_.GetSocket(), (struct sockaddr*)&srv_addr, sizeof(srv_addr)) != 0)
     {
         std::cerr << "[ERROR]: socket bind error! " << std::endl;
         return false;
     }
-    std::cout << "[INFO]: IPv4 HTTP Server Running on " << kTEST << std::endl;
+    std::cout << "[INFO]: IPv4 HTTP Server Running on " << listen_port_ << std::endl;
 
     if (listen(socket_.GetSocket(), SOMAXCONN) != 0)
     {
@@ -43,9 +40,60 @@ bool Server::Init()
         return false;
     }
 
+
+    if (ipv6_enabled_ && !Init6()) {
+        return false;
+    }
+
+
+    StartEventLoop();
+
     return true;
 }
 
+void Server::Start()
+{
+    socket_.SetOnReadCallback([&](){ DoRead(); });
+    socket_.StartRead();
+
+    if (ipv6_enabled_)
+    {
+        v6_socket_.SetOnReadCallback([&](){ DoRead6();});
+        v6_socket_.StartRead();
+    }
+
+
+#if BUILDFLAG(SSL)
+    ssl_socket_.StartRead([this](){ DoRead(); });
+#endif
+
+
+}
+
+void Server::Release()
+{
+    socket_.Close();
+}
+
+void Server::EnableIPv6()
+{
+    ipv6_enabled_ = true;
+}
+
+void Server::EnableSSL()
+{
+    ssl_enabled_ = true;
+}
+
+void Server::SetListenPort(const short port)
+{
+    listen_port_ = port;
+}
+
+void Server::SetSSLListenPort(const short port)
+{
+    ssl_listen_port_ = port;
+}
 
 void Server::DoRead()
 {
@@ -60,19 +108,18 @@ void Server::DoRead()
 }
 
 
-#if BUILDFLAG(IPv6)
 bool Server::Init6()
 {
     struct sockaddr_in6 srv_addr{};
     srv_addr.sin6_family = AF_INET6;
-    srv_addr.sin6_port = htons(kTEST);
+    srv_addr.sin6_port = htons(listen_port_);
     srv_addr.sin6_addr = in6addr_any;
     if (bind(v6_socket_.GetSocket(), (struct sockaddr*)&srv_addr, sizeof(srv_addr)) != 0)
     {
         std::cerr << "[ERROR]: " << __FUNCTION__ << ", socket bind error! " << std::endl;
         return false;
     }
-    std::cout << "[INFO]: IPv6 HTTP Server Running on: " << kTEST << std::endl;
+    std::cout << "[INFO]: IPv6 HTTP Server Running on: " << listen_port_ << std::endl;
 
     if (listen(v6_socket_.GetSocket(), SOMAXCONN) != 0)
     {
@@ -97,48 +144,7 @@ void Server::DoRead6()
     auto v6_http_session = new HttpSession(PosixSocket(cfd));
     v6_http_session->Start();
 }
-#endif
 
 
-#if BUILDFLAG(SSL)
-bool Server::InitSSL()
-{
-    return true;
-}
-#endif
 
 
-bool Server::Start()
-{
-    if (!Init())
-    {
-        std::cerr << "[ERROR]: Init failed" << std::endl;
-        return false;
-    }
-    socket_.SetOnReadCallback([&](){ DoRead(); });
-    socket_.StartRead();
-
-#if BUILDFLAG(IPv6)
-    if (!Init6())
-    {
-        std::cerr << "[ERROR]: " << __FUNCTION__ << ", v6 Init failed" << std::endl;
-        return false;
-    }
-    v6_socket_.SetOnReadCallback([&](){ DoRead6();});
-    v6_socket_.StartRead();
-#endif
-
-#if BUILDFLAG(SSL)
-    ssl_socket_.StartRead([this](){ DoRead(); });
-#endif
-
-    StartEventLoop();
-
-    return true;
-}
-
-
-void Server::Close()
-{
-    socket_.Close();
-}
