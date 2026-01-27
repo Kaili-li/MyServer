@@ -11,7 +11,7 @@
 #include <map>
 #include <string>
 
-#include "posix_socket.h"
+#include "socket_wrapper.hpp"
 
 
 enum class Status : int
@@ -26,7 +26,7 @@ enum class Status : int
 class HttpSession
 {
 public:
-    explicit HttpSession(PosixSocket socket);
+    explicit HttpSession(SocketWrapper socket);
     ~HttpSession();
 
     HttpSession(HttpSession&&) = delete;
@@ -46,7 +46,7 @@ private:
     void OnError(int err_no);
 
 private:
-    PosixSocket socket_{};
+    SocketWrapper socket_{};
 
     std::string recv_buffer_{};
 

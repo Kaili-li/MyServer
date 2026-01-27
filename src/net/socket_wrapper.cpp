@@ -1,4 +1,4 @@
-#include "posix_socket.h"
+#include "socket_wrapper.hpp"
 
 #include <unistd.h>
 #include <sys/socket.h>
@@ -7,13 +7,13 @@
 #include <cerrno>
 #include <cassert>
 
-#include "event.h"
+#include "event_wrapper.hpp"
 
 
 constexpr int kBufSize = 8192;
 
 
-PosixSocket::PosixSocket(bool IPv6)
+SocketWrapper::SocketWrapper(bool IPv6)
 {
     if (!IPv6)
         socket_ = socket(PF_INET, SOCK_STREAM, 0);
@@ -24,19 +24,19 @@ PosixSocket::PosixSocket(bool IPv6)
 }
 
 
-PosixSocket::PosixSocket(Socket fd) : socket_(fd)
+SocketWrapper::SocketWrapper(SOCKET fd) : socket_(fd)
 {
     fcntl(socket_, F_SETFL, fcntl(socket_, F_GETFL) | O_NONBLOCK);
 }
 
 
-PosixSocket::~PosixSocket()
+SocketWrapper::~SocketWrapper()
 {
     Close();    // TODO: Charify here: DO NOT Call any function in destuctor (Effective C++);
 }
 
 
-PosixSocket::PosixSocket(PosixSocket &&ps) noexcept
+SocketWrapper::SocketWrapper(SocketWrapper &&ps) noexcept
 {
     socket_ = ps.socket_;
 
@@ -57,7 +57,7 @@ PosixSocket::PosixSocket(PosixSocket &&ps) noexcept
 }
 
 
-void PosixSocket::Close()
+void SocketWrapper::Close()
 {
     if (socket_ != -1)
     {
@@ -70,7 +70,7 @@ void PosixSocket::Close()
 }
 
 
-void PosixSocket::StartRead()
+void SocketWrapper::StartRead()
 {
     if (on_read_)
         EventAdd(socket_, READ, on_read_);
@@ -79,63 +79,63 @@ void PosixSocket::StartRead()
 }
 
 
-void PosixSocket::StopRead() const
+void SocketWrapper::StopRead() const
 {
     EventDel(socket_, READ);
 }
 
 
-void PosixSocket::SetOnReadCallback(OnReadCallback cb)
+void SocketWrapper::SetOnReadCallback(OnReadCallback cb)
 {
     on_read_ = std::move(cb);
 }
 
 
-void PosixSocket::SetOnDataCallback(OnDataCallback cb)
+void SocketWrapper::SetOnDataCallback(OnDataCallback cb)
 {
     on_data_ = std::move(cb);
 }
 
 
-void PosixSocket::StartSend()
+void SocketWrapper::StartSend()
 {
     EventAdd(socket_, WRITE, [&](){ DoSend(); });
 }
 
 
-void PosixSocket::StopSend() const
+void SocketWrapper::StopSend() const
 {
     EventDel(socket_, WRITE);
 }
 
 
-void PosixSocket::SetSendData(const std::string& data)
+void SocketWrapper::SetSendData(const std::string& data)
 {
     send_buffer_.append(data);
 }
 
 
-void PosixSocket::SetSendData(const char *data, size_t data_size)
+void SocketWrapper::SetSendData(const char *data, size_t data_size)
 {
     send_buffer_.append(data, data_size);
 }
 
 
-void PosixSocket::SetOnDoneCallback(OnDoneCallback cb)
+void SocketWrapper::SetOnDoneCallback(OnDoneCallback cb)
 {
     assert(cb != nullptr);
     on_done_ = std::move(cb);
 }
 
 
-void PosixSocket::SetOnErrorCallback(OnErrorCallback cb)
+void SocketWrapper::SetOnErrorCallback(OnErrorCallback cb)
 {
     assert(cb != nullptr);
     on_error_ = std::move(cb);
 }
 
 
-void PosixSocket::DoSend()
+void SocketWrapper::DoSend()
 {
     ssize_t send_len = send(socket_, send_buffer_.c_str() + sent_len_, send_buffer_.length(), 0);
     if (send_len == -1)
@@ -156,7 +156,7 @@ void PosixSocket::DoSend()
 }
 
 
-void PosixSocket::DoRead()
+void SocketWrapper::DoRead()
 {
     char buf[kBufSize]{};
     ssize_t recv_len = recv(socket_, buf, kBufSize - 1, 0);

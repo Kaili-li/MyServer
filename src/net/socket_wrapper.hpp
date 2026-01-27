@@ -5,8 +5,8 @@
 #include <functional>
 
 
-#if !defined(__WIN32)
-#define Socket int
+#if !defined(_WIN32) || !defined(_WIN64)
+using SOCKET = int;
 #endif
 
 
@@ -14,7 +14,7 @@ constexpr int READ  = 0;
 constexpr int WRITE = 1;
 
 
-class PosixSocket
+class SocketWrapper
 {
 public:
     using OnReadCallback = std::function<void()>;
@@ -23,11 +23,11 @@ public:
     using OnErrorCallback = std::function<void(int)>;
 
 public:
-    explicit PosixSocket(bool IPv6 = false);
-    explicit PosixSocket(Socket socket);
-    ~PosixSocket();
+    explicit SocketWrapper(bool IPv6 = false);
+    explicit SocketWrapper(SOCKET socket);
+    ~SocketWrapper();
 
-    PosixSocket(PosixSocket&&) noexcept;
+    SocketWrapper(SocketWrapper&&) noexcept;
 //    PosixSocket(const PosixSocket&);
 //    PosixSocket& operator=(PosixSocket&&) noexcept;
 //    PosixSocket& operator=(const PosixSocket&);
@@ -48,14 +48,14 @@ public:
 
     void Close();
 
-    Socket GetSocket() const { return socket_; }
+    SOCKET GetSocket() const { return socket_; }
 
 private:
     void DoSend();
     void DoRead();
 
 private:
-    Socket socket_{};
+    SOCKET socket_{};
 
     std::size_t sent_len_{};
     std::size_t recv_len_{};
