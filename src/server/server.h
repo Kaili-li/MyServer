@@ -7,43 +7,40 @@
 class Server
 {
 public:
+    static Server& GetInstance()
+    {
+        static Server instance;
+        return instance;
+    }
+private:
     Server();
     ~Server();
 
-    Server(const Server&) = delete;
-    Server(Server&&) = delete;
-    Server& operator=(const Server&) = delete;
-    Server& operator=(Server &&) = delete;
+public:
+    bool Init();
+    void Start();
+    void Release();
+
+    void EnableIPv6();
+    void EnableSSL();
+    void SetListenPort(const short port);
+    void SetSSLListenPort(const short port);
+
 
 private:
-    bool Init();
+    bool Init6();
     void DoRead();
 
-#if BUILDFLAG(IPv6)
-    bool Init6();
-    void DoRead6();
-#endif
-
-#if BUILDFLAG(SSL)
     bool InitSSL();
-#endif
-
-public:
-    bool Start();
-    void Close();
+    void DoRead6();
 
 private:
+    bool ipv6_enabled_;
+    bool ssl_enabled_;
+
+    short listen_port_;
+    short ssl_listen_port_;
+
     PosixSocket socket_;
-
-#if BUILDFLAG(IPv6)
-    PosixSocket v6_socket_{true};
-#endif
-
-#if BUILDFLAG(SSL)
-    PosixSocket ssl_socket_;
-#endif
-
-#if BUILDFLAG(IPv6) && BUILDFLAG(SSL)
-    PosixSocket v6_ssl_socket_{true};
-#endif
+    PosixSocket v6_socket_;
 };

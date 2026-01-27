@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
-project(MyEcho LANGUAGES C CXX)
+project(MyServer LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,22 +32,7 @@ if (USE_LIBEVENT)
     add_definitions(-DUSE_LIBEVENT)
 endif()
 
-# connection options
-option(ENABLE_SSL "enable SSL" OFF)
-option(ENABLE_IPv6 "enable IPv6" ON)
-
-if (ENABLE_SSL)
-    message(STATUS "[SSL]: Enabled")
-    add_definitions(-DENABLE_SSL)
-endif()
-
-if (ENABLE_IPv6)
-    message(STATUS "[IPv6] Enabled")
-    add_definitions(-DENABLE_IPv6)
-endif()
-
-
-# saniziter options
+# Sanitizer options
 option(ENABLE_SANITIZER "enable sanitizer" OFF)
 if (ENABLE_SANITIZER)
     message(STATUS "Enable [Sanitizer]")
