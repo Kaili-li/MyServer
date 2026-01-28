@@ -1,5 +1,6 @@
 #include "socket_wrapper.hpp"
 
+#include <cstring>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <utility>
@@ -8,6 +9,7 @@
 #include <cassert>
 
 #include "event_wrapper.hpp"
+#include "logging.h"
 
 
 constexpr int kBufSize = 8192;
@@ -19,15 +21,10 @@ SocketWrapper::SocketWrapper(bool IPv6)
         socket_ = socket(PF_INET, SOCK_STREAM, 0);
     else
         socket_ = socket(PF_INET6, SOCK_STREAM, 0);
-
-    fcntl(socket_, F_SETFL, fcntl(socket_, F_GETFL) | O_NONBLOCK);
 }
 
-
-SocketWrapper::SocketWrapper(SOCKET fd) : socket_(fd)
-{
-    fcntl(socket_, F_SETFL, fcntl(socket_, F_GETFL) | O_NONBLOCK);
-}
+SocketWrapper::SocketWrapper(SOCKET socket) : socket_(socket)
+{}
 
 
 SocketWrapper::~SocketWrapper()
@@ -35,27 +32,15 @@ SocketWrapper::~SocketWrapper()
     Close();    // TODO: Charify here: DO NOT Call any function in destuctor (Effective C++);
 }
 
-
-SocketWrapper::SocketWrapper(SocketWrapper &&ps) noexcept
+void SocketWrapper::ToNonBlockMode()
 {
-    socket_ = ps.socket_;
-
-    sent_len_ = ps.sent_len_;
-    recv_len_ = ps.recv_len_;
-    send_buffer_ = std::move(ps.send_buffer_);
-    recv_buffer_ = std::move(ps.recv_buffer_);
-
-    on_read_  = std::move(ps.on_read_);
-    on_data_  = std::move(ps.on_data_);
-    on_done_  = std::move(ps.on_done_);
-    on_error_ = std::move(ps.on_error_);
-
-
-    ps.socket_ = -1;
-    ps.sent_len_ = -1;
-    ps.recv_len_ = -1;
+     fcntl(socket_, F_SETFL, fcntl(socket_, F_GETFL) | O_NONBLOCK);;
 }
 
+SOCKET SocketWrapper::GetSocket() const 
+{
+    return socket_; 
+}
 
 void SocketWrapper::Close()
 {
@@ -72,10 +57,7 @@ void SocketWrapper::Close()
 
 void SocketWrapper::StartRead()
 {
-    if (on_read_)
-        EventStart(socket_, kReadEvent, on_read_);
-    else
-        EventStart(socket_, kReadEvent, [&](){ DoRead(); });
+    DoRead();
 }
 
 
@@ -84,40 +66,30 @@ void SocketWrapper::StopRead() const
     EventStop(socket_, kReadEvent);
 }
 
+void SocketWrapper::Send(const std::string& data)
+{
+    send_buffer_.append(data);
+    DoSend();
+}
+
+void SocketWrapper::Send(const char *data, size_t data_size)
+{
+    send_buffer_.append(data, data_size);
+    DoSend();
+}
+
 
 void SocketWrapper::SetOnReadCallback(OnReadCallback cb)
 {
+    assert(cb != nullptr);
     on_read_ = std::move(cb);
 }
 
 
 void SocketWrapper::SetOnDataCallback(OnDataCallback cb)
 {
+    assert(cb != nullptr);
     on_data_ = std::move(cb);
-}
-
-
-void SocketWrapper::StartSend()
-{
-    EventStart(socket_, kWriteEvent, [&](){ DoSend(); });
-}
-
-
-void SocketWrapper::StopSend() const
-{
-    EventStop(socket_, kWriteEvent);
-}
-
-
-void SocketWrapper::SetSendData(const std::string& data)
-{
-    send_buffer_.append(data);
-}
-
-
-void SocketWrapper::SetSendData(const char *data, size_t data_size)
-{
-    send_buffer_.append(data, data_size);
 }
 
 
@@ -141,18 +113,30 @@ void SocketWrapper::DoSend()
     if (send_len == -1)
     {
 #ifdef __APPLE__
-        if (errno == EAGAIN)
+        if (errno == EAGAIN) {
 #elif __linux__
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+#else 
+        // TODO : Support Windows
 #endif
-            return;
-        else
-            on_error_(errno);
+            EventStart(socket_, kWriteEvent, [&](){DoSend(); });
+        }
+    }
+    else
+    {
+        std::cerr << "[ERROR]: Send data failed: " << errno << ", " << strerror(errno) << std::endl;
+        on_error_(errno);
     }
 
     sent_len_ += send_len;
     if (sent_len_ == send_buffer_.length())     //  TODO: Optimize here when send buffer is very large (huge memory use)
+    {
+        sent_len_ = 0;
+        send_buffer_.clear();
+        EventStop(socket_, kWriteEvent);
         on_done_();
+    }
+        
 }
 
 
@@ -163,13 +147,20 @@ void SocketWrapper::DoRead()
     if (recv_len == -1)
     {
 #ifdef __APPLE__
-        if (errno == EAGAIN)
+        if (errno == EAGAIN) 
 #elif __linux__
         if (errno == EAGAIN || errno == EWOULDBLOCK)
+#else 
+        // TODO: Support Windows
 #endif
-            return;
+        {
+            EventStart(socket_, kReadEvent, [&](){ DoRead(); });
+        }
         else
+        {
+            LOG(1) << "[ERROR]: read failed, errno: " << errno << " : " << strerror(errno) << std::endl;
             on_error_(errno);
+        }
     }
     if (recv_len > 0)
     {
