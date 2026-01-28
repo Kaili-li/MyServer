@@ -18,12 +18,13 @@ const char* kHeader = "HTTP/1.1 200 OK\r\n"
                       "Content-Length: 85\r\n"
                       "Server:elitk/Manjaro 20.0 - Lysia\r\n"
                       "\r\n"
-                      "<!DOCTYPE html><html><head> Welcom, Kai</head><h1> aaa, elitk's Home page</h1></html>";
+                      "<!DOCTYPE html><html><head> Welcom, Kai</head><h1> Hi, Home page by Kai Li</h1></html>";
 
 
-HttpSession::HttpSession(SocketWrapper socket) : socket_(std::move(socket))
-{}
-
+HttpSession::HttpSession(SOCKET socket) : socket_(socket)
+{
+    socket_.ToNonBlockMode();
+}
 
 HttpSession::~HttpSession()
 {
@@ -47,10 +48,9 @@ void HttpSession::Read()
 
 void HttpSession::Send()
 {
-    socket_.SetSendData(kHeader, strlen(kHeader));
     socket_.SetOnDoneCallback([&](){ OnSendDone(); });
     socket_.SetOnErrorCallback([&](int err_no){ OnError(err_no); });
-    socket_.StartSend();
+    socket_.Send(kHeader, strlen(kHeader));
 }
 
 
@@ -87,7 +87,6 @@ void HttpSession::DoRead(std::string& data)
 
 void HttpSession::OnSendDone()
 {
-    socket_.StopSend();
     Close();
 }
 
@@ -103,7 +102,6 @@ void HttpSession::OnError(int err_no)
             socket_.StopRead();
         case Status::kSendResponseHeader:
         case Status::kSendResponseData:
-            socket_.StopSend();
             break;
     }
     Close();

@@ -8,11 +8,11 @@
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <iostream>
 
 #endif
 
 #include "server.h"
+#include "logging.h"
 #include "event_wrapper.hpp"
 #include "http_session.h"
 
@@ -37,7 +37,7 @@ bool Server::Init()
     WSADATA wsa_data;
     if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0)
     {
-        std::cerr << "[ERROR]: WSAStart failed" << std::endl;
+        LOG(1) << "[ERROR]: WSAStart failed" << std::endl;
         return false;
     }
 
@@ -49,6 +49,7 @@ bool Server::Init()
 void Server::Start()
 {
 
+    socket_.ToNonBlockMode();
 
     struct sockaddr_in srv_addr{};
     srv_addr.sin_family = AF_INET;
@@ -56,14 +57,14 @@ void Server::Start()
     srv_addr.sin_port = htons(listen_port_);
     if (bind(socket_.GetSocket(), (struct sockaddr*)&srv_addr, sizeof(srv_addr)) != 0)
     {
-        std::cerr << "[ERROR]: socket bind error! " << std::endl;
+        LOG(1) << "[ERROR]: socket bind error! " << std::endl;
         return;
     }
     std::cout << "[INFO]: IPv4 HTTP Server Running on " << listen_port_ << std::endl;
 
     if (listen(socket_.GetSocket(), SOMAXCONN) != 0)
     {
-        std::cerr << "[ERROR] listen socket failed " << std::endl;
+        LOG(1) << "[ERROR] listen socket failed " << std::endl;
         return;
     }
 
@@ -73,7 +74,7 @@ void Server::Start()
     // }
 
     socket_.SetOnReadCallback([&](){ DoRead(); });
-    socket_.StartRead();
+    EventStart(socket_.GetSocket(), kReadEvent, [&]{ DoRead();} );
 
     // if (ipv6_enabled_)
     // {
@@ -109,9 +110,9 @@ void Server::DoRead()
     socklen_t c_adr_len = sizeof(c_adr);
 
     SOCKET cfd = accept(socket_.GetSocket(), (struct sockaddr*)&c_adr, &c_adr_len);
-    std::cout << "\n[LOG]: Http Request from: " << inet_ntoa(c_adr.sin_addr) << std::endl;
+    LOG(1) << "[INFO]: Http Request from: " << inet_ntoa(c_adr.sin_addr) << std::endl;
 
-    auto http_session = new HttpSession(SocketWrapper(cfd));
+    auto http_session = new HttpSession(cfd);
     http_session->Start();
 }
 
@@ -124,14 +125,14 @@ bool Server::Init6()
     srv_addr.sin6_addr = in6addr_any;
     if (bind(socket6_.GetSocket(), (struct sockaddr*)&srv_addr, sizeof(srv_addr)) != 0)
     {
-        std::cerr << "[ERROR]: " << __FUNCTION__ << ", socket bind error! " << std::endl;
+        LOG(4) << "[ERROR]: " << __FUNCTION__ << ", socket bind error! " << std::endl;
         return false;
     }
     std::cout << "[INFO]: IPv6 HTTP Server Running on: " << listen_port_ << std::endl;
 
     if (listen(socket6_.GetSocket(), SOMAXCONN) != 0)
     {
-        std::cerr << "[ERROR]: " << __FUNCTION__ << ", v6 socket listen failed " << std::endl;
+        LOG(1) << "[ERROR]: " << __FUNCTION__ << ", v6 socket listen failed " << std::endl;
         return false;
     }
 
@@ -147,9 +148,9 @@ void Server::DoRead6()
 
     char buf[64]{};
     inet_ntop(AF_INET6, &c_addr.sin6_addr, buf, 64);
-    std::cout << "\n[INFO]: Recv HTTP Request from: " << buf << std::endl;
+    LOG(1) << "[INFO]: Recv HTTP Request from: " << buf << std::endl;
 
-    auto v6_http_session = new HttpSession(SocketWrapper(cfd));
+    auto v6_http_session = new HttpSession(cfd);
     v6_http_session->Start();
 }
 
