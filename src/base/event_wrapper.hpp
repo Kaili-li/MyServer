@@ -8,23 +8,15 @@ using SOCKET = int;
 #endif
 
 
-constexpr int kRead = 1 << 1;
-constexpr int kWrite = 1 << 2;
+constexpr int kReadEvent = 1 << 1;
+constexpr int kWriteEvent = 1 << 2;
+constexpr int kTimeoutEvent = 1 << 3;
 
 using Callback = std::function<void()>;
 
-struct Event
-{
-    Event(SOCKET socket, int type, Callback cb);
-    bool operator==(const Event &e) const;
-
-    SOCKET       socket;
-    int          event_type;
-    Callback     callback;
-};
-
-void EventAdd(SOCKET socket, int event_type, Callback cb);
-void EventDel(SOCKET socket, int event_type);
-void StartEventLoop();
+bool Init();
+void Release();
+void EventStart(SOCKET socket, int event_type, Callback cb);
+void EventStop(SOCKET socket, int event_type);
 
 int GetEventQuantityForTest();

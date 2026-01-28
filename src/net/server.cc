@@ -43,6 +43,12 @@ bool Server::Init()
 
 #endif
 
+    return ::Init();
+}
+
+void Server::Start()
+{
+
 
     struct sockaddr_in srv_addr{};
     srv_addr.sin_family = AF_INET;
@@ -51,37 +57,29 @@ bool Server::Init()
     if (bind(socket_.GetSocket(), (struct sockaddr*)&srv_addr, sizeof(srv_addr)) != 0)
     {
         std::cerr << "[ERROR]: socket bind error! " << std::endl;
-        return false;
+        return;
     }
     std::cout << "[INFO]: IPv4 HTTP Server Running on " << listen_port_ << std::endl;
 
     if (listen(socket_.GetSocket(), SOMAXCONN) != 0)
     {
         std::cerr << "[ERROR] listen socket failed " << std::endl;
-        return false;
+        return;
     }
 
 
-    if (ipv6_enabled_ && !Init6()) {
-        return false;
-    }
+    // if (ipv6_enabled_ && !Init6()) {
+    //     return;
+    // }
 
-
-    StartEventLoop();
-
-    return true;
-}
-
-void Server::Start()
-{
     socket_.SetOnReadCallback([&](){ DoRead(); });
     socket_.StartRead();
 
-    if (ipv6_enabled_)
-    {
-        socket6_.SetOnReadCallback([&](){ DoRead6();});
-        socket6_.StartRead();
-    }
+    // if (ipv6_enabled_)
+    // {
+    //     socket6_.SetOnReadCallback([&](){ DoRead6();});
+    //     socket6_.StartRead();
+    // }
 }
 
 void Server::Release()
