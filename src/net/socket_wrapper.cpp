@@ -62,8 +62,8 @@ void SocketWrapper::Close()
     if (socket_ != -1)
     {
         shutdown(socket_, SHUT_RDWR);
-        EventDel(socket_, READ);
-        EventDel(socket_, WRITE);
+        EventStop(socket_, kReadEvent);
+        EventStop(socket_, kWriteEvent);
         close(socket_);
         socket_ = -1;
     }
@@ -73,15 +73,15 @@ void SocketWrapper::Close()
 void SocketWrapper::StartRead()
 {
     if (on_read_)
-        EventAdd(socket_, READ, on_read_);
+        EventStart(socket_, kReadEvent, on_read_);
     else
-        EventAdd(socket_, READ, [&](){ DoRead(); });
+        EventStart(socket_, kReadEvent, [&](){ DoRead(); });
 }
 
 
 void SocketWrapper::StopRead() const
 {
-    EventDel(socket_, READ);
+    EventStop(socket_, kReadEvent);
 }
 
 
@@ -99,13 +99,13 @@ void SocketWrapper::SetOnDataCallback(OnDataCallback cb)
 
 void SocketWrapper::StartSend()
 {
-    EventAdd(socket_, WRITE, [&](){ DoSend(); });
+    EventStart(socket_, kWriteEvent, [&](){ DoSend(); });
 }
 
 
 void SocketWrapper::StopSend() const
 {
-    EventDel(socket_, WRITE);
+    EventStop(socket_, kWriteEvent);
 }
 
 

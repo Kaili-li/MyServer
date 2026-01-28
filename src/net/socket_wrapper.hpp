@@ -10,10 +10,6 @@ using SOCKET = int;
 #endif
 
 
-constexpr int READ  = 0;
-constexpr int WRITE = 1;
-
-
 class SocketWrapper
 {
 public:

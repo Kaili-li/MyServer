@@ -1,104 +1,132 @@
 #include "event_wrapper.hpp"
 
 
-// condition implementation
 #if defined(USE_SELECT)
 
-
+#include <sys/socket.h>
 #include <sys/select.h>
+#include <fcntl.h>
+
 #include <vector>
 #include <algorithm>
-#include <cassert>
+
+#include <iostream>
 
 
-fd_set rfds{};
-fd_set wfds{};
-int  fd_max{-1};
-
-std::vector<Event> events{};
-static bool isLoopRunning{false};
-
-Event::Event(SOCKET socket, int type, Callback cb) : socket(socket), event_type(type), callback(std::move(cb))   // TODO: Optimize here
-{}
-
-bool Event::operator==(const Event& e) const
+struct Event
 {
-    return std::tie(e.socket, e.event_type) == std::tie(socket, event_type);
-}
+    Event(SOCKET socket, int type)
+        : socket(socket), event_type(type), callback(nullptr)
+    {}
 
+    Event(SOCKET socket, int type, Callback cb)
+        : socket(socket), event_type(type), callback(std::move(cb))
+    {}
 
-/**
- *
- * @param socket
- * @param event_type
- * @param cb
- */
-void EventAdd(int socket, int event_type, Callback cb)
-{
-    assert(cb != nullptr);
-
-    Event e{socket, event_type, std::move(cb)};
-    fd_max = std::max(socket + 1, fd_max);
-
-    auto iter = std::find(events.begin(), events.end(), e);
-    if (iter == events.end())
+    bool operator==(const Event &e) const
     {
-        events.emplace_back(e);
+        return std::tie(socket, event_type) == std::tie(e.socket, e.event_type);
     }
-}
 
-
-/**
- *
- * @param socket
- * @param event_type
- */
-void EventDel(int socket, int event_type)
-{
-    auto iter = std::find_if(events.begin(), events.end(), [&](Event &e){
-        return e.socket == socket && e.event_type == event_type;
-    });
-    if (iter != events.end())
-        events.erase(iter);
-}
-
-
-void StartEventLoop()
-{
-    if (isLoopRunning)
-        return;
-
-    isLoopRunning = true;
-    while (true)
+    bool operator!=(const Event& rhs) const
     {
-        struct timeval timeout{0, 1000};
-        int select_rc = select(fd_max, &rfds, &wfds, nullptr, &timeout);
-        if (select_rc == -1)
-            break;
+        return !(*this == rhs);
+    }
 
-        for (const auto &t : events)
+    SOCKET       socket;
+    int          event_type;
+    Callback     callback;
+};
+
+
+static int fd_max{-1};
+static int loop_fd;
+static std::vector<Event> events{};
+static bool loop_running{false};
+
+
+void RunEventLoop()
+{
+    loop_running = true;
+    while (!events.empty())
+    {
+
+        fd_set rfds{};
+        fd_set wfds{};
+        for (const auto & e : events)
         {
-            if (FD_ISSET(t.socket, &rfds) || FD_ISSET(t.socket, &wfds))
+            fd_max = std::max(fd_max, e.socket + 1);
+            if (e.event_type & kReadEvent)
             {
-                t.callback();
+                FD_SET(e.socket, &rfds);
+            }
+            if (e.event_type & kWriteEvent)
+            {
+                FD_SET(e.socket, &wfds);
             }
         }
 
-
-        FD_ZERO(&rfds);
-        FD_ZERO(&wfds);
-        for_each(events.begin(), events.end(), [&](const Event &t)
+        struct timeval timeout {2, 500};
+        int rv = select(fd_max, &rfds, &wfds, nullptr, &timeout);
+        if (rv == -1)
         {
-            if (t.event_type & kRead)
+            std::cerr << "[ERROR]: select error: " << errno << " : " << strerror(errno) << std::endl;
+            break;
+        }
+
+        if (rv > 0)
+        {
+            for (const auto & e : events)
             {
-                FD_SET(t.socket, &rfds);
+                if (FD_ISSET(e.socket, &rfds) || FD_ISSET(e.socket, &wfds))
+                {
+                    e.callback();
+                }
             }
-            else
-            {
-                FD_SET(t.socket, &wfds);
-            }
-        });
+        }
     }
+}
+
+bool Init()
+{
+    loop_fd = socket(PF_INET, SOCK_STREAM, 0);
+    if (loop_fd < 0)
+    {
+        std::cerr << "[ERROR]: Init failed: " << errno << " : " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    fcntl(loop_fd, F_SETFL, fcntl(loop_fd, F_GETFL) | O_NONBLOCK);
+    fd_max = std::max(fd_max, loop_fd + 1);
+
+    return true;
+}
+
+
+
+void EventStart(int socket, int event_type, Callback cb)
+{
+    Event event{socket, event_type, cb};
+    auto iter = std::find(events.begin(), events.end(), event);
+    if (iter == events.end())
+    {
+        fd_max = std::max(socket + 1, fd_max);
+        events.emplace_back(event);
+    }
+
+    if (!loop_running)
+    {
+        RunEventLoop();
+    }
+}
+
+
+void EventStop(int socket, int event_type)
+{
+    Event event(socket, event_type);
+    auto iter = std::find(events.begin(), events.end(), event);
+    if (iter != events.end())
+        events.erase(iter);
 }
 
 
