@@ -7,9 +7,9 @@
 
 #include <cstring>
 
-#include <iostream>
 #include "http_session.h"
 #include "utils.h"
+#include "logging.h"
 
 
 const char* kHeader = "HTTP/1.1 200 OK\r\n"
@@ -75,9 +75,9 @@ void HttpSession::DoRead(std::string& data)
     if (!http_header_.empty())
     {
         socket_.StopRead();
-        std::cout << "[LOG]: Request Header: " << std::endl;
+        LOG(INFO) << "Request Header: " << std::endl;
         for (const auto& t : http_header_)
-            std::cout << t.first << " : " << t.second << std::endl;
+            LOG(DEBUG) << t.first << " : " << t.second << std::endl;
 
         status_ = Status::kSendResponseHeader;
         Send();
@@ -93,7 +93,7 @@ void HttpSession::OnSendDone()
 
 void HttpSession::OnError(int err_no)
 {
-    std::cerr << "[ERROR]: " << __FUNCTION__  << ", errno: " << err_no << " : " << strerror(err_no) << std::endl;
+    LOG(ERROR) << "errno: " << err_no << " : " << strerror(err_no) << std::endl;
     switch (status_)
     {
         case Status::kInit:

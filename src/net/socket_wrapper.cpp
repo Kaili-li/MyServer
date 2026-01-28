@@ -124,7 +124,7 @@ void SocketWrapper::DoSend()
     }
     else
     {
-        std::cerr << "[ERROR]: Send data failed: " << errno << ", " << strerror(errno) << std::endl;
+        LOG(ERROR) << "Send data failed: " << errno << ", " << strerror(errno) << std::endl;
         on_error_(errno);
     }
 
@@ -158,7 +158,7 @@ void SocketWrapper::DoRead()
         }
         else
         {
-            LOG(1) << "[ERROR]: read failed, errno: " << errno << " : " << strerror(errno) << std::endl;
+            LOG(ERROR) << "Socket recv failed, errno: " << errno << " : " << strerror(errno) << std::endl;
             on_error_(errno);
         }
     }
