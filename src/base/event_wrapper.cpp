@@ -10,7 +10,7 @@
 #include <vector>
 #include <algorithm>
 
-#include <iostream>
+#include "logging.h"
 
 
 struct Event
@@ -50,7 +50,6 @@ void RunEventLoop()
     loop_running = true;
     while (!events.empty())
     {
-
         fd_set rfds{};
         fd_set wfds{};
         for (const auto & e : events)
@@ -70,7 +69,7 @@ void RunEventLoop()
         int rv = select(fd_max, &rfds, &wfds, nullptr, &timeout);
         if (rv == -1)
         {
-            std::cerr << "[ERROR]: select error: " << errno << " : " << strerror(errno) << std::endl;
+            LOG(ERROR) << "select error: " << errno << " : " << strerror(errno) << std::endl;
             break;
         }
 
@@ -92,7 +91,7 @@ bool Init()
     loop_fd = socket(PF_INET, SOCK_STREAM, 0);
     if (loop_fd < 0)
     {
-        std::cerr << "[ERROR]: Init failed: " << errno << " : " << strerror(errno) << std::endl;
+        LOG(ERROR) << "Init failed: " << errno << " : " << strerror(errno) << std::endl;
         return false;
     }
 

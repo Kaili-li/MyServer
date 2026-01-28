@@ -1,8 +1,6 @@
 #include "utils.h"
 
 #include <cstring>
-#include <iostream>
-
 
 const char CRLF[] = "\r\n\r\n";
 
