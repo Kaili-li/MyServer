@@ -41,7 +41,7 @@ public:
     void Close();
 
 private:
-    void DoRead(std::string& data);
+    void DoRead(const std::string& data);
     void OnSendDone();
     void OnError(int err_no);
 

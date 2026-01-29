@@ -66,11 +66,9 @@ void HttpSession::Close()
 }
 
 
-void HttpSession::DoRead(std::string& data)
+void HttpSession::DoRead(const std::string& data)
 {
     recv_buffer_.append(data);
-    data.clear(); // TODO: Optimize here
-
     http_header_ = HttpUtils::ParseHttpHeaderFrom(recv_buffer_.c_str(), recv_buffer_.length());
     if (!http_header_.empty())
     {

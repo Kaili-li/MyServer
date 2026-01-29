@@ -45,9 +45,7 @@ private:
 private:
     SOCKET socket_{};
 
-    // std::size_t recv_len_{};
     std::string send_buffer_{};
-    std::string recv_buffer_{};
 
     OnReadCallback on_read_{};
     OnDataCallback on_data_{};
