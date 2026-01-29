@@ -42,7 +42,7 @@ void HttpSession::Read()
 {
     socket_.SetOnDataCallback([&](std::string& data){ DoRead(data); });
     socket_.SetOnErrorCallback([&](int err_no){ OnError(err_no); });
-    socket_.StartRead();
+    socket_.Read();
 }
 
 

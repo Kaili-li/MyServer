@@ -25,11 +25,13 @@ public:
 
 
 private:
-    bool Init6();
-    void DoRead();
+    bool Active();
+    bool Active6();
+    void OnAccept();
+    void OnAccept6();
 
     bool InitSSL();
-    void DoRead6();
+
 
 private:
     bool ipv6_enabled_;

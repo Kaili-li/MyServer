@@ -32,7 +32,7 @@ SocketWrapper::~SocketWrapper()
     Close();    // TODO: Charify here: DO NOT Call any function in destuctor (Effective C++);
 }
 
-void SocketWrapper::ToNonBlockMode()
+void SocketWrapper::ToNonBlockMode() const
 {
      fcntl(socket_, F_SETFL, fcntl(socket_, F_GETFL) | O_NONBLOCK);;
 }
@@ -55,7 +55,7 @@ void SocketWrapper::Close()
 }
 
 
-void SocketWrapper::StartRead()
+void SocketWrapper::Read()
 {
     DoRead();
 }
@@ -109,7 +109,7 @@ void SocketWrapper::SetOnErrorCallback(OnErrorCallback cb)
 
 void SocketWrapper::DoSend()
 {
-    ssize_t send_len = send(socket_, send_buffer_.c_str() + sent_len_, send_buffer_.length(), 0);
+    const ssize_t send_len = send(socket_, send_buffer_.c_str(), send_buffer_.length(), 0);
     if (send_len == -1)
     {
 #ifdef __APPLE__
@@ -119,31 +119,30 @@ void SocketWrapper::DoSend()
 #else 
         // TODO : Support Windows
 #endif
-            EventStart(socket_, kWriteEvent, [&](){DoSend(); });
+            EventStart(socket_, kWriteEvent, [&](){ DoSend(); });
         }
-    }
-    else
-    {
-        LOG(ERROR) << "Send data failed: " << errno << ", " << strerror(errno) << std::endl;
-        on_error_(errno);
+        else
+        {
+            LOG(ERROR) << "Send data failed: " << errno << ", " << strerror(errno) << std::endl;
+            on_error_(errno);
+        }
+
+        return;
     }
 
-    sent_len_ += send_len;
-    if (sent_len_ == send_buffer_.length())     //  TODO: Optimize here when send buffer is very large (huge memory use)
+    send_buffer_.erase(send_buffer_.begin(), send_buffer_.begin() + send_len);
+    if (send_buffer_.empty())
     {
-        sent_len_ = 0;
-        send_buffer_.clear();
         EventStop(socket_, kWriteEvent);
         on_done_();
     }
-        
 }
 
 
 void SocketWrapper::DoRead()
 {
     char buf[kBufSize]{};
-    ssize_t recv_len = recv(socket_, buf, kBufSize - 1, 0);
+    const ssize_t recv_len = recv(socket_, buf, kBufSize - 1, 0);
     if (recv_len == -1)
     {
 #ifdef __APPLE__
@@ -162,7 +161,11 @@ void SocketWrapper::DoRead()
             on_error_(errno);
         }
     }
-    if (recv_len > 0)
+    else if (recv_len == 0)
+    {
+        EventStop(socket_, kReadEvent);
+    }
+    else
     {
         recv_buffer_.append(buf, recv_len);
         on_data_(recv_buffer_);

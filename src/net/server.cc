@@ -49,38 +49,16 @@ bool Server::Init()
 void Server::Start()
 {
 
-    socket_.ToNonBlockMode();
-
-    struct sockaddr_in srv_addr{};
-    srv_addr.sin_family = AF_INET;
-    srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    srv_addr.sin_port = htons(listen_port_);
-    if (bind(socket_.GetSocket(), (struct sockaddr*)&srv_addr, sizeof(srv_addr)) != 0)
+    if (!Active() && !Active6())
     {
-        LOG(ERROR) << "socket bind error! " << std::endl;
         return;
     }
-    LOG(INFO) << "IPv4 HTTP Server Running on " << listen_port_ << std::endl;
+    EventStart(socket_.GetSocket(), kReadEvent, [&] { OnAccept(); });
 
-    if (listen(socket_.GetSocket(), SOMAXCONN) != 0)
+    if (ipv6_enabled_)
     {
-        LOG(ERROR) << "listen socket failed " << std::endl;
-        return;
+        EventStart(socket6_.GetSocket(), kReadEvent, [&]{ OnAccept6(); });
     }
-
-
-    // if (ipv6_enabled_ && !Init6()) {
-    //     return;
-    // }
-
-    socket_.SetOnReadCallback([&](){ DoRead(); });
-    EventStart(socket_.GetSocket(), kReadEvent, [&]{ DoRead();} );
-
-    // if (ipv6_enabled_)
-    // {
-    //     socket6_.SetOnReadCallback([&](){ DoRead6();});
-    //     socket6_.StartRead();
-    // }
 }
 
 void Server::Release()
@@ -103,8 +81,60 @@ void Server::SetListenPort(const short port)
     listen_port_ = port;
 }
 
+bool Server::Active()
+{
+    socket_.ToNonBlockMode();
 
-void Server::DoRead()
+    struct sockaddr_in srv_addr{};
+    srv_addr.sin_family = AF_INET;
+    srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    srv_addr.sin_port = htons(listen_port_);
+    if (bind(socket_.GetSocket(), reinterpret_cast<struct sockaddr*>(&srv_addr), sizeof(srv_addr)) != 0)
+    {
+        LOG(ERROR) << "socket bind error! " << std::endl;
+        return false;
+    }
+    LOG(INFO) << "IPv4 HTTP Server Running on " << listen_port_ << std::endl;
+
+    if (listen(socket_.GetSocket(), SOMAXCONN) != 0)
+    {
+        LOG(ERROR) << "listen socket failed " << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool Server::Active6()
+{
+    if (!ipv6_enabled_)
+    {
+        return true;
+    }
+
+    socket6_.ToNonBlockMode();
+
+    struct sockaddr_in6 srv_addr{};
+    srv_addr.sin6_family = AF_INET6;
+    srv_addr.sin6_addr = in6addr_any;
+    srv_addr.sin6_port = htons(listen_port_);
+    if (bind(socket6_.GetSocket(), reinterpret_cast<struct sockaddr*>(&srv_addr), sizeof(srv_addr)) != 0)
+    {
+        LOG(ERROR) << "socket bind error! " << std::endl;
+        return false;
+    }
+
+    if (listen(socket6_.GetSocket(), SOMAXCONN) != 0)
+    {
+        LOG(ERROR) << "v6 socket listen failed " << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+
+void Server::OnAccept()
 {
     struct sockaddr_in c_adr{};
     socklen_t c_adr_len = sizeof(c_adr);
@@ -117,30 +147,7 @@ void Server::DoRead()
 }
 
 
-bool Server::Init6()
-{
-    struct sockaddr_in6 srv_addr{};
-    srv_addr.sin6_family = AF_INET6;
-    srv_addr.sin6_port = htons(listen_port_);
-    srv_addr.sin6_addr = in6addr_any;
-    if (bind(socket6_.GetSocket(), (struct sockaddr*)&srv_addr, sizeof(srv_addr)) != 0)
-    {
-        LOG(ERROR) << "socket bind error! " << std::endl;
-        return false;
-    }
-    // std::cout << "[INFO]: IPv6 HTTP Server Running on: " << listen_port_ << std::endl;
-
-    if (listen(socket6_.GetSocket(), SOMAXCONN) != 0)
-    {
-        LOG(ERROR) << "v6 socket listen failed " << std::endl;
-        return false;
-    }
-
-    return true;
-}
-
-
-void Server::DoRead6()
+void Server::OnAccept6()
 {
     struct sockaddr_in6 c_addr{};
     socklen_t c_addr_len = sizeof(c_addr);
@@ -153,7 +160,4 @@ void Server::DoRead6()
     auto v6_http_session = new HttpSession(cfd);
     v6_http_session->Start();
 }
-
-
-
 
