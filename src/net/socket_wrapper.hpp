@@ -24,10 +24,10 @@ public:
     ~SocketWrapper();
 
 public:
-    void ToNonBlockMode();
+    void ToNonBlockMode() const;
     SOCKET GetSocket() const;
 
-    void StartRead();
+    void Read();
     void StopRead() const;
     void Send(const std::string& data);
     void Send(const char* data, size_t data_size);
@@ -45,7 +45,6 @@ private:
 private:
     SOCKET socket_{};
 
-    std::size_t sent_len_{};
     // std::size_t recv_len_{};
     std::string send_buffer_{};
     std::string recv_buffer_{};
