@@ -167,7 +167,7 @@ void SocketWrapper::DoRead()
     }
     else
     {
-        recv_buffer_.append(buf, recv_len);
-        on_data_(recv_buffer_);
+        std::string data(buf, recv_len);
+        on_data_(data);
     }
 }

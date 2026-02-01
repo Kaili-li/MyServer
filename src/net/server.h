@@ -21,7 +21,7 @@ public:
 
     void EnableIPv6();
     void EnableSSL();
-    void SetListenPort(const short port);
+    void SetListenPort(short port);
 
 
 private:
